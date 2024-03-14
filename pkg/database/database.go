@@ -2,8 +2,9 @@ package database
 
 import (
 	"database/sql"
-	_ "github.com/lib/pq"
 	"log"
+	
+	_ "github.com/lib/pq"
 )
 
 var tableQuery = map[string]string{
