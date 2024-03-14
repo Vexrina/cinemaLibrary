@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  db:
+    extends:
+      file: pg-database.yml
+      service: db
+  pgadmin:
+    extends:
+      file: pg-database.yml
+      service: pgadmin
