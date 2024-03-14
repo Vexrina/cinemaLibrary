@@ -7,16 +7,13 @@ import (
 	"net/http"
 
 	"golang.org/x/crypto/bcrypt"
+	
+	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
-type User struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	var user User
+	var user types.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -49,7 +46,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	var user User
+	var user types.User
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

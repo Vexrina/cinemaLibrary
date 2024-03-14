@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/vexrina/cinemaLibrary/pkg/userapi"
+	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
 func TestRegisterHandler(t *testing.T) {
@@ -27,7 +28,7 @@ func TestRegisterHandler(t *testing.T) {
 	})
 
 	// create test request
-	user := userapi.User{Username: "testuser", Email: "test@example.com", Password: "testpassword"}
+	user := types.User{Username: "testuser", Email: "test@example.com", Password: "testpassword"}
 	body, _ := json.Marshal(user)
 	req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(body))
 	if err != nil {
@@ -70,7 +71,7 @@ func TestLoginHandler(t *testing.T) {
 	})
 
 	// create test request
-	user := userapi.User{Email: "test@example.com", Password: "testpassword"}
+	user := types.User{Email: "test@example.com", Password: "testpassword"}
 	body, _ := json.Marshal(user)
 	req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
 	if err != nil {
