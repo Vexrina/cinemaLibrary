@@ -39,6 +39,8 @@ func main() {
 			filmapi.CreateFilmHandler(w, r, filmOrm)
 		case http.MethodPatch:
 			filmapi.UpdateFilmHandler(w, r, filmOrm)
+		case http.MethodGet:
+			filmapi.GetFilmsHandler(w, r, filmOrm)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

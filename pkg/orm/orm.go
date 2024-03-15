@@ -95,3 +95,140 @@ func (orm *ORM) GetUserPasswordByEmail(email string) (string, error) {
 	}
 	return storedPassword, nil
 }
+
+func (orm *ORM) GetFilms(sortBy string, ascending bool) ([]types.Film, error) {
+	// Default query
+    orderBy := "rating"
+
+    // another sort
+    switch sortBy {
+    case "title":
+        orderBy= "title"
+    case "release_date":
+        orderBy = "release_date"
+    }
+	if ascending{
+		orderBy = orderBy + " ASC"
+	} else {
+		orderBy = orderBy + " DESC"
+	}
+
+	query := "SELECT * FROM films ORDER BY " + orderBy
+    rows, err := orm.db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    // create list of films
+    var films []types.Film
+    for rows.Next() {
+        var film types.Film
+        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+            return nil, err
+        }
+        films = append(films, film)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return films, nil
+}
+
+func (orm *ORM) SearchFilmsByFragment(fragment string) ([]types.Film, error) {
+    // Query to search films by actor fragment
+    queryByActor := `
+        SELECT f.id, f.title, f.description, f.release_date, f.rating
+        FROM films AS f
+        JOIN film_actors AS fa ON f.id = fa.film_id
+        JOIN actors AS a ON fa.actor_id = a.id
+        WHERE a.name LIKE '%' || $1 || '%'
+    `
+
+    // Query to search films by title fragment
+    queryByTitle := `
+        SELECT id, title, description, release_date, rating
+        FROM films
+        WHERE title LIKE '%' || $1 || '%'
+    `
+
+    // Combine both queries using UNION ALL
+    query := queryByActor + " UNION ALL " + queryByTitle
+
+    // Execute the combined query
+    rows, err := orm.db.Query(query, fragment)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    // Create list of films
+    var films []types.Film
+    for rows.Next() {
+        var film types.Film
+        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+            return nil, err
+        }
+        films = append(films, film)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return films, nil
+}
+
+func (orm *ORM) SearchFilmsByActorFragment(actorFragment string) ([]types.Film, error) {
+    query := `
+        SELECT f.id, f.title, f.description, f.release_date, f.rating
+        FROM films AS f
+        JOIN film_actors AS fa ON f.id = fa.film_id
+        JOIN actors AS a ON fa.actor_id = a.id
+        WHERE a.name LIKE '%' || $1 || '%'
+    `
+
+    rows, err := orm.db.Query(query, actorFragment)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var films []types.Film
+    for rows.Next() {
+        var film types.Film
+        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+            return nil, err
+        }
+        films = append(films, film)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return films, nil
+}
+
+func (orm *ORM) SearchFilmsByTitleFragment(titleFragment string) ([]types.Film, error) {
+    query := "SELECT * FROM films WHERE title LIKE '%' || $1 || '%'"
+
+    rows, err := orm.db.Query(query, titleFragment)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var films []types.Film
+    for rows.Next() {
+        var film types.Film
+        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+            return nil, err
+        }
+        films = append(films, film)
+    }
+    if err := rows.Err(); err != nil {
+        return nil, err
+    }
+
+    return films, nil
+}
