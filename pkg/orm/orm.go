@@ -263,13 +263,14 @@ func (orm *ORM) CreateUser(username, email, hashedPassword string) error {
 	return nil
 }
 
-func (orm *ORM) GetUserPasswordByEmail(email string) (string, error) {
+func (orm *ORM) GetUserPasswordByEmail(email string) (string, bool, error) {
 	var storedPassword string
-	err := orm.db.QueryRow("SELECT password FROM users WHERE email=$1", email).Scan(&storedPassword)
+	var adminflag bool
+	err := orm.db.QueryRow("SELECT password, adminflag FROM users WHERE email=$1", email).Scan(&storedPassword, &adminflag)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return storedPassword, nil
+	return storedPassword, adminflag, err
 }
 
 // endpoint: /user
