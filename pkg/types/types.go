@@ -18,6 +18,12 @@ type Actor struct {
 	Birthdate string `json:"birthdate"`
 }
 
+type ActorWithFilms struct {
+	ID         int      `json:"id"`
+	Name       string   `json:"name"`
+	FilmTitles []string `json:"film_titles"`
+}
+
 type User struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -26,6 +32,6 @@ type User struct {
 
 type Claims struct {
 	Username string `json:"username"`
-	Admin bool `json:"admin"`
+	Admin    bool   `json:"admin"`
 	jwt.StandardClaims
 }

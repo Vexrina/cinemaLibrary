@@ -47,6 +47,13 @@ func main() {
 			} else {
 				actorapi.DeleteActorHandler(w, r, actorOrm)
 			}
+		case http.MethodGet:
+			_, err:= tokens.ValidateToken(w,r)
+			if err !=nil{
+				http.Error(w, "Bad token", http.StatusUnauthorized)
+			} else {
+				actorapi.GetActorsHandler(w, r, actorOrm)
+			}
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

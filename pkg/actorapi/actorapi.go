@@ -69,3 +69,30 @@ func DeleteActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
     // Возвращаем успешный статус
     w.WriteHeader(http.StatusOK)
 }
+
+// method get
+func GetActorsHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
+    // url like /actors?fragment={fragment}
+    fragment := r.URL.Query().Get("fragment")
+    if fragment != "" {
+        // find by fragment
+        actors, err := orm.GetActorsWithFragment(fragment)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(actors)
+    } else {
+        // find all actors
+        actors, err := orm.GetActors()
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(actors)
+    }
+}

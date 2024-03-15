@@ -42,19 +42,108 @@ func (orm *ORM) UpdateActor(actor types.Actor) error {
 
 // delete
 func (orm *ORM) DeleteActorByID(id int) error {
-    deleteFilmActorsQuery := "DELETE FROM film_actors WHERE actor_id = $1"
-    _, err := orm.db.Exec(deleteFilmActorsQuery, id)
-    if err != nil {
-        return err
-    }
+	deleteFilmActorsQuery := "DELETE FROM film_actors WHERE actor_id = $1"
+	_, err := orm.db.Exec(deleteFilmActorsQuery, id)
+	if err != nil {
+		return err
+	}
 
-    deleteActorQuery := "DELETE FROM actors WHERE id = $1"
-    _, err = orm.db.Exec(deleteActorQuery, id)
-    if err != nil {
-        return err
-    }
+	deleteActorQuery := "DELETE FROM actors WHERE id = $1"
+	_, err = orm.db.Exec(deleteActorQuery, id)
+	if err != nil {
+		return err
+	}
 
-    return nil
+	return nil
+}
+
+// get
+// utility
+func getFilmsWithActor(orm *ORM, actorId int) ([]string, error){
+	filmsQuery := `
+		SELECT f.title
+		FROM films AS f
+		JOIN film_actors AS fa ON f.id = fa.film_id
+		WHERE fa.actor_id = $1
+	`
+	filmsRows, err := orm.db.Query(filmsQuery, actorId)
+	if err != nil {
+		return nil, err
+	}
+	defer filmsRows.Close()
+
+	var filmTitles []string
+	for filmsRows.Next() {
+		var title string
+		if err := filmsRows.Scan(&title); err != nil {
+			return nil, err
+		}
+		filmTitles = append(filmTitles, title)
+	}
+	if err := filmsRows.Err(); err != nil {
+		return nil, err
+	}
+
+	return filmTitles, nil
+}
+
+func (orm *ORM) GetActors() ([]types.ActorWithFilms, error) {
+	query := `SELECT id, name FROM actors`
+
+	rows, err := orm.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actorsWithFilms []types.ActorWithFilms
+	for rows.Next() {
+		var actor types.ActorWithFilms
+		if err := rows.Scan(&actor.ID, &actor.Name); err != nil {
+			return nil, err
+		}
+		filmTitles, err := getFilmsWithActor(orm, actor.ID)
+		if err!=nil{
+			return nil, err
+		}
+		actor.FilmTitles = filmTitles
+		actorsWithFilms = append(actorsWithFilms, actor)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return actorsWithFilms, nil
+}
+
+func (orm *ORM) GetActorsWithFragment(actorFragment string) ([]types.ActorWithFilms, error) {
+	query := `SELECT id, name FROM actors WHERE name LIKE ?`
+	actorFragment = "%" + actorFragment + "%"
+
+	rows, err := orm.db.Query(query, actorFragment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actorsWithFilms []types.ActorWithFilms
+	for rows.Next() {
+		var actor types.ActorWithFilms
+		if err := rows.Scan(&actor.ID, &actor.Name); err != nil {
+			return nil, err
+		}
+		filmTitles, err := getFilmsWithActor(orm, actor.ID)
+		if err!=nil{
+			return nil, err
+		}
+		actor.FilmTitles = filmTitles
+		actorsWithFilms = append(actorsWithFilms, actor)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return actorsWithFilms, nil
 }
 
 // endpoint: /actor
@@ -226,10 +315,10 @@ func (orm *ORM) SearchFilmsByTitleFragment(titleFragment string) ([]types.Film, 
 // delete
 func (orm *ORM) DeleteFilmByID(filmID int) error {
 	deleteFilmActorsQuery := "DELETE FROM film_actors WHERE film_id = $1"
-    _, err := orm.db.Exec(deleteFilmActorsQuery, filmID)
-    if err != nil {
-        return err
-    }
+	_, err := orm.db.Exec(deleteFilmActorsQuery, filmID)
+	if err != nil {
+		return err
+	}
 
 	deleteFilmQuery := "DELETE FROM films WHERE id = $1"
 	_, err = orm.db.Exec(deleteFilmQuery, filmID)
@@ -253,6 +342,7 @@ func (orm *ORM) CountUsersWithUsernameAndEmail(username, email string) (int, err
 	}
 	return count, nil
 }
+
 // post
 func (orm *ORM) CreateUser(username, email, hashedPassword string) error {
 	// Create new user
