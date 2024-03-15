@@ -29,10 +29,13 @@ func main() {
 			actorapi.CreateActorHandler(w, r, actorOrm)
 		case http.MethodPatch:
 			actorapi.UpdateActorHandler(w, r, actorOrm)
+		case http.MethodDelete:
+			actorapi.DeleteActorHandler(w, r, actorOrm)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
 	http.HandleFunc("/film", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -41,10 +44,13 @@ func main() {
 			filmapi.UpdateFilmHandler(w, r, filmOrm)
 		case http.MethodGet:
 			filmapi.GetFilmsHandler(w, r, filmOrm)
+		case http.MethodDelete:
+			filmapi.DeleteFilmHandler(w, r, filmOrm)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	
 	http.HandleFunc("/user/register", func(w http.ResponseWriter, r *http.Request) { userapi.RegisterHandler(w, r, userOrm) })
 	http.HandleFunc("/user/login", func(w http.ResponseWriter, r *http.Request) { userapi.LoginHandler(w, r, userOrm) })
 

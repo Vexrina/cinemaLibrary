@@ -9,6 +9,7 @@ import (
 	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
+// method post
 func CreateActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	var actor types.Actor
 	err := json.NewDecoder(r.Body).Decode(&actor)
@@ -26,6 +27,7 @@ func CreateActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// method patch
 func UpdateActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	var actor types.Actor
 	err := json.NewDecoder(r.Body).Decode(&actor)
@@ -41,4 +43,29 @@ func UpdateActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// method delete
+func DeleteActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
+    var actor types.Actor
+	err := json.NewDecoder(r.Body).Decode(&actor)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id := actor.ID
+	if id ==0 {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = orm.DeleteActorByID(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+    // Возвращаем успешный статус
+    w.WriteHeader(http.StatusOK)
 }

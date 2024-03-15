@@ -11,7 +11,6 @@ import (
 Not sure how to correctly divide ORM into different packages/modules for prod, for example filmORM, actorORM, etc..
 Wrote all the ORMs in one file, although it doesn't seem to be quite correct
 */
-
 type ORM struct {
 	db *sql.DB
 }
@@ -20,6 +19,8 @@ func NewORM(db *sql.DB) *ORM {
 	return &ORM{db: db}
 }
 
+// endpoint: /actor
+// post
 func (orm *ORM) CreateActor(actor types.Actor) error {
 	// Add new actor to database
 	_, err := orm.db.Exec("INSERT INTO actors (name, gender, date_of_birth) VALUES ($1, $2, $3)", actor.Name, actor.Gender, actor.Birthdate)
@@ -29,6 +30,7 @@ func (orm *ORM) CreateActor(actor types.Actor) error {
 	return nil
 }
 
+// patch
 func (orm *ORM) UpdateActor(actor types.Actor) error {
 	// Update actor with ID
 	_, err := orm.db.Exec("UPDATE actors SET name = $1, gender = $2, date_of_birth = $3 WHERE id = $4", actor.Name, actor.Gender, actor.Birthdate, actor.ID)
@@ -38,6 +40,27 @@ func (orm *ORM) UpdateActor(actor types.Actor) error {
 	return nil
 }
 
+// delete
+func (orm *ORM) DeleteActorByID(id int) error {
+    deleteFilmActorsQuery := "DELETE FROM film_actors WHERE actor_id = $1"
+    _, err := orm.db.Exec(deleteFilmActorsQuery, id)
+    if err != nil {
+        return err
+    }
+
+    deleteActorQuery := "DELETE FROM actors WHERE id = $1"
+    _, err = orm.db.Exec(deleteActorQuery, id)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
+// endpoint: /actor
+
+// endpoint: /film
+// post
 func (orm *ORM) CreateFilm(film types.Film) (int, error) {
 	// Add new film to database
 	var filmID int
@@ -57,6 +80,7 @@ func (orm *ORM) CreateFilm(film types.Film) (int, error) {
 	return filmID, nil
 }
 
+// patch
 func (orm *ORM) UpdateFilm(film types.Film) error {
 	// Update film with ID
 	query := "UPDATE films SET title = $2, description = $3, release_date = $4, rating = $5 WHERE id = $1"
@@ -68,6 +92,158 @@ func (orm *ORM) UpdateFilm(film types.Film) error {
 	return nil
 }
 
+// get
+func (orm *ORM) GetFilms(sortBy string, ascending bool) ([]types.Film, error) {
+	// Default query
+	orderBy := "rating"
+
+	// another sort
+	switch sortBy {
+	case "title":
+		orderBy = "title"
+	case "release_date":
+		orderBy = "release_date"
+	}
+	if ascending {
+		orderBy = orderBy + " ASC"
+	} else {
+		orderBy = orderBy + " DESC"
+	}
+
+	query := "SELECT * FROM films ORDER BY " + orderBy
+	rows, err := orm.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// create list of films
+	var films []types.Film
+	for rows.Next() {
+		var film types.Film
+		if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+			return nil, err
+		}
+		films = append(films, film)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return films, nil
+}
+
+func (orm *ORM) SearchFilmsByFragment(fragment string) ([]types.Film, error) {
+	queryByActor := `
+        SELECT f.id, f.title, f.description, f.release_date, f.rating
+        FROM films AS f
+        JOIN film_actors AS fa ON f.id = fa.film_id
+        JOIN actors AS a ON fa.actor_id = a.id
+        WHERE a.name LIKE '%' || $1 || '%'
+    `
+	queryByTitle := `
+        SELECT id, title, description, release_date, rating
+        FROM films
+        WHERE title LIKE '%' || $1 || '%'
+    `
+	query := queryByActor + " UNION ALL " + queryByTitle
+
+	rows, err := orm.db.Query(query, fragment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var films []types.Film
+	for rows.Next() {
+		var film types.Film
+		if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+			return nil, err
+		}
+		films = append(films, film)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return films, nil
+}
+
+func (orm *ORM) SearchFilmsByActorFragment(actorFragment string) ([]types.Film, error) {
+	query := `
+        SELECT f.id, f.title, f.description, f.release_date, f.rating
+        FROM films AS f
+        JOIN film_actors AS fa ON f.id = fa.film_id
+        JOIN actors AS a ON fa.actor_id = a.id
+        WHERE a.name LIKE '%' || $1 || '%'
+    `
+
+	rows, err := orm.db.Query(query, actorFragment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var films []types.Film
+	for rows.Next() {
+		var film types.Film
+		if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+			return nil, err
+		}
+		films = append(films, film)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return films, nil
+}
+
+func (orm *ORM) SearchFilmsByTitleFragment(titleFragment string) ([]types.Film, error) {
+	query := "SELECT * FROM films WHERE title LIKE '%' || $1 || '%'"
+
+	rows, err := orm.db.Query(query, titleFragment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var films []types.Film
+	for rows.Next() {
+		var film types.Film
+		if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
+			return nil, err
+		}
+		films = append(films, film)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return films, nil
+}
+
+// delete
+func (orm *ORM) DeleteFilmByID(filmID int) error {
+	deleteFilmActorsQuery := "DELETE FROM film_actors WHERE film_id = $1"
+    _, err := orm.db.Exec(deleteFilmActorsQuery, filmID)
+    if err != nil {
+        return err
+    }
+
+	deleteFilmQuery := "DELETE FROM films WHERE id = $1"
+	_, err = orm.db.Exec(deleteFilmQuery, filmID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// endpoint: /film
+
+// endpoint: /user
+// utility function
 func (orm *ORM) CountUsersWithUsernameAndEmail(username, email string) (int, error) {
 	// Considers users with such a username and email
 	var count int
@@ -77,7 +253,7 @@ func (orm *ORM) CountUsersWithUsernameAndEmail(username, email string) (int, err
 	}
 	return count, nil
 }
-
+// post
 func (orm *ORM) CreateUser(username, email, hashedPassword string) error {
 	// Create new user
 	_, err := orm.db.Exec("INSERT INTO users (username, email, password) VALUES ($1, $2, $3)", username, email, hashedPassword)
@@ -96,139 +272,4 @@ func (orm *ORM) GetUserPasswordByEmail(email string) (string, error) {
 	return storedPassword, nil
 }
 
-func (orm *ORM) GetFilms(sortBy string, ascending bool) ([]types.Film, error) {
-	// Default query
-    orderBy := "rating"
-
-    // another sort
-    switch sortBy {
-    case "title":
-        orderBy= "title"
-    case "release_date":
-        orderBy = "release_date"
-    }
-	if ascending{
-		orderBy = orderBy + " ASC"
-	} else {
-		orderBy = orderBy + " DESC"
-	}
-
-	query := "SELECT * FROM films ORDER BY " + orderBy
-    rows, err := orm.db.Query(query)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-
-    // create list of films
-    var films []types.Film
-    for rows.Next() {
-        var film types.Film
-        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
-            return nil, err
-        }
-        films = append(films, film)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-
-    return films, nil
-}
-
-func (orm *ORM) SearchFilmsByFragment(fragment string) ([]types.Film, error) {
-    // Query to search films by actor fragment
-    queryByActor := `
-        SELECT f.id, f.title, f.description, f.release_date, f.rating
-        FROM films AS f
-        JOIN film_actors AS fa ON f.id = fa.film_id
-        JOIN actors AS a ON fa.actor_id = a.id
-        WHERE a.name LIKE '%' || $1 || '%'
-    `
-
-    // Query to search films by title fragment
-    queryByTitle := `
-        SELECT id, title, description, release_date, rating
-        FROM films
-        WHERE title LIKE '%' || $1 || '%'
-    `
-
-    // Combine both queries using UNION ALL
-    query := queryByActor + " UNION ALL " + queryByTitle
-
-    // Execute the combined query
-    rows, err := orm.db.Query(query, fragment)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-
-    // Create list of films
-    var films []types.Film
-    for rows.Next() {
-        var film types.Film
-        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
-            return nil, err
-        }
-        films = append(films, film)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-
-    return films, nil
-}
-
-func (orm *ORM) SearchFilmsByActorFragment(actorFragment string) ([]types.Film, error) {
-    query := `
-        SELECT f.id, f.title, f.description, f.release_date, f.rating
-        FROM films AS f
-        JOIN film_actors AS fa ON f.id = fa.film_id
-        JOIN actors AS a ON fa.actor_id = a.id
-        WHERE a.name LIKE '%' || $1 || '%'
-    `
-
-    rows, err := orm.db.Query(query, actorFragment)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-
-    var films []types.Film
-    for rows.Next() {
-        var film types.Film
-        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
-            return nil, err
-        }
-        films = append(films, film)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-
-    return films, nil
-}
-
-func (orm *ORM) SearchFilmsByTitleFragment(titleFragment string) ([]types.Film, error) {
-    query := "SELECT * FROM films WHERE title LIKE '%' || $1 || '%'"
-
-    rows, err := orm.db.Query(query, titleFragment)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-
-    var films []types.Film
-    for rows.Next() {
-        var film types.Film
-        if err := rows.Scan(&film.ID, &film.Title, &film.Description, &film.ReleaseDate, &film.Rating); err != nil {
-            return nil, err
-        }
-        films = append(films, film)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-
-    return films, nil
-}
+// endpoint: /user

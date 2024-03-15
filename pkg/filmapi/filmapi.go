@@ -11,6 +11,7 @@ import (
 	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
+// post method
 func CreateFilmHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	var film types.Film
 	err := json.NewDecoder(r.Body).Decode(&film)
@@ -29,6 +30,7 @@ func CreateFilmHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// patch method
 func UpdateFilmHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	var film types.Film
 	err := json.NewDecoder(r.Body).Decode(&film)
@@ -46,6 +48,8 @@ func UpdateFilmHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// get method
+// utility
 type EnumType string
 
 const (
@@ -70,6 +74,7 @@ func ValidateEnumType(value EnumType) error {
 	return nil
 }
 
+// main func for get method
 func GetFilmsHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	queryValues := r.URL.Query()
 
@@ -130,4 +135,28 @@ func GetFilmsHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	}
 
 	http.Error(w, "Invalid URL format", http.StatusBadRequest)
+}
+
+// delete method
+func DeleteFilmHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
+	var film types.Film
+	err := json.NewDecoder(r.Body).Decode(&film)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id := film.ID
+	if id == 0 {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	
+	err = orm.DeleteFilmByID(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
