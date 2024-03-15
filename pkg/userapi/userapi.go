@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"golang.org/x/crypto/bcrypt"
-	
+
 	"github.com/vexrina/cinemaLibrary/pkg/orm"
+	"github.com/vexrina/cinemaLibrary/pkg/tokens"
 	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
@@ -56,7 +57,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	}
 
 	// Get hashed password from db
-	storedPassword, err := orm.GetUserPasswordByEmail(user.Email)
+	storedPassword, adminflag, err := orm.GetUserPasswordByEmail(user.Email)
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
@@ -69,5 +70,18 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	tokenString, err := tokens.CreateToken(user.Username, adminflag)
+	if err != nil {
+		http.Error(w, "Error with creating token", http.StatusUnauthorized)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{"token":tokenString}
+	
+	err = json.NewEncoder(w).Encode(response)
+	if err!=nil{
+		http.Error(w, "Error encoding response", http.StatusInternalServerError)
+		return
+	}
 }
