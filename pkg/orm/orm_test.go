@@ -179,7 +179,7 @@ func TestUpdateFilm_Success(t *testing.T) {
 	orm := orm.NewORM(db)
 
 	mockFilm := types.Film{
-		ID:          "1",
+		ID:          1,
 		Title:       "Updated Film Title",
 		Description: "This is an updated film description",
 		ReleaseDate: "2024-03-16",
@@ -206,7 +206,7 @@ func TestUpdateFilm_DBError(t *testing.T) {
 	orm := orm.NewORM(db)
 
 	mockFilm := types.Film{
-		ID:          "1",
+		ID:          1,
 		Title:       "Updated Film Title",
 		Description: "This is an updated film description",
 		ReleaseDate: "2024-03-16",
@@ -305,7 +305,7 @@ func TestGetUserPasswordByEmail_Success(t *testing.T) {
 
 	mock.ExpectQuery("SELECT password FROM users").WithArgs("test_email").WillReturnRows(sqlmock.NewRows([]string{"password"}).AddRow("hashed_password"))
 
-	password, err := orm.GetUserPasswordByEmail("test_email")
+	password, _, err := orm.GetUserPasswordByEmail("test_email")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "hashed_password", password)
@@ -324,7 +324,7 @@ func TestGetUserPasswordByEmail_DBError(t *testing.T) {
 
 	mock.ExpectQuery("SELECT password FROM users").WithArgs("test_email").WillReturnError(errors.New("database error"))
 
-	password, err := orm.GetUserPasswordByEmail("test_email")
+	password, _, err := orm.GetUserPasswordByEmail("test_email")
 
 	assert.Error(t, err)
 	assert.Empty(t, password)
