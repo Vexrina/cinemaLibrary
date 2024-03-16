@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/vexrina/cinemaLibrary/pkg/actorapi"
 	"github.com/vexrina/cinemaLibrary/pkg/database"
@@ -13,7 +14,9 @@ import (
 )
 
 func main() {
-	connectionString := "host=172.20.0.3 port=5432 dbname=test_db user=root password=root sslmode=disable"
+	postgresHost := os.Getenv("POSTGRES_HOST")
+	log.Println("PostgreSQL host:", postgresHost)
+	connectionString := "host=" + postgresHost + " port=5432 dbname=test_db user=root password=root sslmode=disable"
 	db, err := database.ConnectToPG(connectionString)
 	if err != nil {
 		log.Fatal(err)
@@ -48,8 +51,8 @@ func main() {
 				actorapi.DeleteActorHandler(w, r, actorOrm)
 			}
 		case http.MethodGet:
-			_, err:= tokens.ValidateToken(w,r)
-			if err !=nil{
+			_, err := tokens.ValidateToken(w, r)
+			if err != nil {
 				http.Error(w, "Bad token", http.StatusUnauthorized)
 			} else {
 				actorapi.GetActorsHandler(w, r, actorOrm)

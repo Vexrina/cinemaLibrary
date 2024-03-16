@@ -6,7 +6,18 @@ services:
     extends:
       file: pg-database.yml
       service: db
+    environment:
+      - POSTGRES_HOST=db
   pgadmin:
     extends:
       file: pg-database.yml
       service: pgadmin
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - POSTGRES_HOST=db
+    restart: on-failure
