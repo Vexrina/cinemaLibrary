@@ -7,7 +7,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var tableQuery = map[string]string{
+
+var TableQuery = map[string]string{
 	"users": `CREATE TABLE users (
 		id SERIAL PRIMARY KEY,
 		username VARCHAR(50) NOT NULL,
@@ -30,12 +31,13 @@ var tableQuery = map[string]string{
 		actor_id INTEGER REFERENCES actors(id) ON DELETE CASCADE,
 		PRIMARY KEY (film_id, actor_id))`,
 }
-var tableColumn = map[string][]string{
+var TableColumn = map[string][]string{
 	"users":  {"id", "username", "email", "password", "adminflag"},
 	"films":  {"id", "title", "description", "release_date", "rating"},
 	"actors": {"id", "name", "gender", "date_of_birth"},
 	"film_actors": {"film_id", "actor_id"},
 }
+
 
 func ConnectToPG(connString string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", connString)
@@ -50,14 +52,14 @@ func ConnectToPG(connString string) (*sql.DB, error) {
 
 	log.Println("Success connect")
 
-	if checker(db) != nil {
+	if Checker(db) != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 	return db, nil
 }
 
-func tableExists(db *sql.DB, tableName string) (bool, error) {
+func TableExists(db *sql.DB, tableName string) (bool, error) {
 	var exists bool
 	err := db.QueryRow("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1)", tableName).Scan(&exists)
 	if err != nil {
@@ -66,11 +68,9 @@ func tableExists(db *sql.DB, tableName string) (bool, error) {
 	return exists, nil
 }
 
-func columnsExist(db *sql.DB, tableName string, columnNames []string) (bool, error) {
-	// Строим запрос для проверки существования колонок
+func ColumnsExist(db *sql.DB, tableName string, columnNames []string) (bool, error) {
 	query := "SELECT column_name FROM information_schema.columns WHERE table_name = $1"
 
-	// Выполняем запрос к базе данных
 	rows, err := db.Query(query, tableName)
 	if err != nil {
 		log.Println("Error querying database:", err)
@@ -78,7 +78,6 @@ func columnsExist(db *sql.DB, tableName string, columnNames []string) (bool, err
 	}
 	defer rows.Close()
 
-	// Создаем мапу для хранения существующих колонок
 	existingColumns := make(map[string]bool)
 	for rows.Next() {
 		var columnName string
@@ -89,7 +88,6 @@ func columnsExist(db *sql.DB, tableName string, columnNames []string) (bool, err
 		existingColumns[columnName] = true
 	}
 
-	// Проверяем, что все колонки из списка присутствуют в таблице
 	for _, columnName := range columnNames {
 		if !existingColumns[columnName] {
 			return false, nil
@@ -99,25 +97,25 @@ func columnsExist(db *sql.DB, tableName string, columnNames []string) (bool, err
 	return true, nil
 }
 
-func checker(db *sql.DB) error {
-	for table, columns := range tableColumn {
-		exists, err := tableExists(db, table)
+func Checker(db *sql.DB) error {
+	for table, columns := range TableColumn {
+		exists, err := TableExists(db, table)
 		if err != nil {
 			log.Fatal(err)
 			return err
 		}
 		if !exists {
-			db.Exec(tableQuery[table])
+			db.Exec(TableQuery[table])
 			continue
 		}
-		exists, err = columnsExist(db, table, columns)
+		exists, err = ColumnsExist(db, table, columns)
 		if err != nil {
 			log.Fatal(err)
 			return err
 		}
 		if !exists {
 			db.Exec("DROP TABLE" + table)
-			db.Exec(tableQuery[table])
+			db.Exec(TableQuery[table])
 			continue
 		}
 	}
