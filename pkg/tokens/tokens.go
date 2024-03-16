@@ -11,7 +11,7 @@ import (
 	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
-var jwtKey = []byte("your_secret_key")
+var JWTKey = []byte("your_secret_key")
 
 func CreateToken(username string, adminflag bool) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
@@ -25,62 +25,56 @@ func CreateToken(username string, adminflag bool) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtKey)
+	return token.SignedString(JWTKey)
 }
 
+// exported only for test
+func ExtractTokenFromRequest(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return ""
+	}
 
-func extractTokenFromRequest(r *http.Request) string {
-    // Извлекаем токен из хэдера Authorization
-    authHeader := r.Header.Get("Authorization")
-    if authHeader == "" {
-        return ""
-    }
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return ""
+	}
 
-    parts := strings.Split(authHeader, " ")
-    if len(parts) != 2 || parts[0] != "Bearer" {
-        return ""
-    }
-
-    return parts[1]
+	return parts[1]
 }
 
-func parseToken(tokenString string) (*jwt.Token, error) {
-    return jwt.ParseWithClaims(tokenString, &types.Claims{}, func(token *jwt.Token) (interface{}, error) {
-        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-            return nil, jwt.ErrSignatureInvalid
-        }
-        return jwtKey, nil
-    })
+// exported only for test
+func ParseToken(tokenString string) (*jwt.Token, error) {
+	return jwt.ParseWithClaims(tokenString, &types.Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		} else {
+			return JWTKey, nil
+		}
+	})
 }
 
 func ValidateToken(w http.ResponseWriter, r *http.Request) (bool, error) {
-		// get token from request
-		tokenString := extractTokenFromRequest(r)
+	// get token from request
+	tokenString := ExtractTokenFromRequest(r)
 
-		// token is not empty
-		if tokenString == "" {
-			http.Error(w, "Token doesnot exist", http.StatusUnauthorized)
-			return false, errors.New("Token doesnot exist")
-		}
-
-		// check format token
-		parts := strings.Split(tokenString, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Bad token", http.StatusUnauthorized)
-			return false, errors.New("Bad token")
-		}
-
-		token, err:= parseToken(parts[1])
-		if err != nil || !token.Valid {
-			http.Error(w, "Bad token or token expired", http.StatusUnauthorized)
-			return false, errors.New("Bad token or token expired")
-		}
-
-		claims, ok := token.Claims.(*types.Claims)
-		if !ok{
-			http.Error(w, "Can not retrieve claims from token", http.StatusUnauthorized)
-			return false, errors.New("Can not retrieve claims from token")
-		}
-		
-		return claims.Admin, nil
+	// token is not empty
+	if tokenString == "" {
+		http.Error(w, "Token doesnot exist", http.StatusUnauthorized)
+		return false, errors.New("token doesnot exist")
 	}
+
+	token, err := ParseToken(tokenString)
+	if err != nil || !token.Valid {
+		http.Error(w, "Bad token or token expired", http.StatusUnauthorized)
+		return false, errors.New("bad token or token expired")
+	}
+
+	claims, ok := token.Claims.(*types.Claims)
+	if !ok {
+		http.Error(w, "Can not retrieve claims from token", http.StatusUnauthorized)
+		return false, errors.New("can not retrieve claims from token")
+	}
+
+	return claims.Admin, nil
+}
