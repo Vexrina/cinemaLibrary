@@ -40,14 +40,12 @@ func (orm *ORM) UpdateActor(actor types.Actor) error {
 
 // delete
 func (orm *ORM) DeleteActorByID(id int) error {
-	deleteFilmActorsQuery := "DELETE FROM film_actors WHERE actor_id = $1"
-	_, err := orm.db.Exec(deleteFilmActorsQuery, id)
+	_, err := orm.db.Exec("DELETE FROM film_actors WHERE actor_id = $1", id)
 	if err != nil {
 		return err
 	}
 
-	deleteActorQuery := "DELETE FROM actors WHERE id = $1"
-	_, err = orm.db.Exec(deleteActorQuery, id)
+	_, err = orm.db.Exec("DELETE FROM actors WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -115,9 +113,8 @@ func (orm *ORM) GetActors() ([]types.ActorWithFilms, error) {
 }
 
 func (orm *ORM) GetActorsWithFragment(actorFragment string) ([]types.ActorWithFilms, error) {
-	query := `SELECT id, name FROM actors WHERE name LIKE ?`
+	query := `SELECT id, name FROM actors WHERE name LIKE $1`
 	actorFragment = "%" + actorFragment + "%"
-
 	rows, err := orm.db.Query(query, actorFragment)
 	if err != nil {
 		return nil, err

@@ -17,7 +17,6 @@ func CreateActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	err = orm.CreateActor(actor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -54,15 +53,14 @@ func DeleteActorHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		return
 	}
 
-	id := actor.ID
-	if id ==0 {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if actor.ID ==0 {
+		http.Error(w, "Actor ID is required", http.StatusBadRequest)
 		return
 	}
 
-	err = orm.DeleteActorByID(id)
+	err = orm.DeleteActorByID(actor.ID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -75,10 +73,10 @@ func GetActorsHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
     // url like /actors?fragment={fragment}
     fragment := r.URL.Query().Get("fragment")
     if fragment != "" {
-        // find by fragment
+		// find by fragment
         actors, err := orm.GetActorsWithFragment(fragment)
         if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
+            http.Error(w, "database error", http.StatusInternalServerError)
             return
         }
 
