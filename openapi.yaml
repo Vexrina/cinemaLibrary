@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: Vexrina - CinemaLibrary 3.0
+  contact:
+    email: vexrina.wlw@gmail.com
+  license:
+    name: The MIT License
+    url: https://opensource.org/license/MIT
+  version: "1.0"
+servers:
+  - url: http://localhost:8080/
+    description: "Dev server"
+paths:
+  /films:
+    get:
+      parameters:
+        - in: query
+          name: sortby
+          schema:
+            type: string
+            enum: [rating, title, release_date]
+          description: Сортировка по одной из колонок
+          required: false
+        - in: query
+          name: asc
+          schema:
+            type: boolean
+          description: Сортировка по убыванию (false) или по возрастанию (true) 
+          required: false
+        - in: query
+          name: actor
+          schema:
+            type: string
+          description: Будут искаться фильмы, в которых снимался актер, в имени которого есть фрагмент из URL. НЕЛЬЗЯ ИСПОЛЬЗОВАТЬ ВМЕСТЕ С title И actor_title
+          required: false
+        - in: query
+          name: title
+          schema:
+            type: string
+          description: Будут искаться фильмы, в названии которых есть фрагмент из URL. НЕЛЬЗЯ ИСПОЛЬЗОВАТЬ ВМЕСТЕ С actor И actor_title
+          required: false
+        - in: query
+          name: actor_title
+          schema:
+            type: string
+          description: Будут искаться такие фильмы, у которых в названии есть фрагмент из URL или в которых снимался актер, в имени которого есть фрагмент из URL. НЕЛЬЗЯ ИСПОЛЬЗОВАТЬ ВМЕСТЕ С title И actor
+          required: false
+      summary: Метод получения всех фильмов
+      tags:
+        - Films
+      operationId: getAllFilms
+      responses:
+        '200':
+          description: Успешный ответ со списком фильмов.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Films"
+        '401':
+          description: Ошибка доступа, необходимо пройти аутентификацию.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+    post:
+      tags:
+        - Films
+      summary: Метод добавления фильма.
+      operationId: addFilm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Film"
+        description: ID можно не указывать, оно автоинкрементится в БД. Актеры обязаны быть в БД, они не создаются используя этот запрос.
+      responses:
+        '200':
+          description: Успешное добавление фильма.
+        '405':
+          description: Ошибка доступа, необходимо пройти аутентификацию и иметь права админа.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+    patch:
+      tags:
+        - Films
+      summary: Метод изменения информации о фильме.
+      operationId: changeFilm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Film"
+        description: ID нужно указывать. Не влияет на актеров в фильме, посему можно их не указывать.
+      responses:
+        '200':
+          description: Успешное изменение фильма.
+        '405':
+          description: Ошибка доступа, необходимо пройти аутентификацию и иметь права админа.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+    delete:
+      tags:
+        - Films
+      summary: Метод удаления информации о фильме.
+      operationId: deleteFilm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Film"
+        description: ID нужно указывать, все остальное - не обязательно.
+      responses:
+        '200':
+          description: Успешное удаление фильма.
+        '405':
+          description: Ошибка доступа, необходимо пройти аутентификацию и иметь права админа.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+  /actors:
+    get:
+      parameters:
+        - in: query
+          name: fragment
+          schema:
+            type: string
+          description: Ищет актеров с fragment в Имени
+          required: false
+      summary: Метод получения всех актеров и фильмов, где они снимаются
+      tags:
+        - Actors
+      operationId: getAllActors
+      responses:
+        '200':
+          description: Успешный ответ со списком актеров.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Actors"
+        '401':
+          description: Ошибка доступа, необходимо пройти аутентификацию.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+    post:
+      tags:
+        - Actors
+      summary: Метод добавления актера.
+      operationId: addActor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Actor"
+        description: ID можно не указывать, оно автоинкрементится в БД.
+      responses:
+        '200':
+          description: Успешное добавление актера.
+        '405':
+          description: Ошибка доступа, необходимо пройти аутентификацию и иметь права админа.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+    patch:
+      tags:
+        - Actors
+      summary: Метод изменения информации о актере.
+      operationId: changeActor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Actor"
+        description: ID нужно указывать.
+      responses:
+        '200':
+          description: Успешное изменение информации о актере.
+        '405':
+          description: Ошибка доступа, необходимо пройти аутентификацию и иметь права админа.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+    delete:
+      tags:
+        - Actors
+      summary: Метод удаления информации о актере.
+      operationId: deleteActor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Actor"
+        description: ID нужно указывать, все остальное - не обязательно.
+      responses:
+        '200':
+          description: Успешное удаление актера.
+        '405':
+          description: Ошибка доступа, необходимо пройти аутентификацию и иметь права админа.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка обращения сервера к БД.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+  /users/login:
+    post:
+      tags:
+        - Users
+      summary: Метод аутентификации пользователя.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginUser"
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Token"
+          description: Успешная аутентификация. Пришедший обратно токен, необходимо записать в header для последующих запросов. Должно получится Authorization Bearer {token}
+        '400':
+          description: Неправильный json.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '401':
+          description: Неверный пароль или email, ошибка при создании токена. 
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка при кодировании ответа. 
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+  /users/register:
+    post:
+      tags:
+        - Users
+      summary: Метод регистрации пользователя.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUser"
+      responses:
+        '200':
+          description: Успешная Регистрация. Авторизуйтесь и можете пользоваться API.
+        '400':
+          description: Неправильный json.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        '500':
+          description: Ошибка при подсчете уникальных пар email-username, генерации hash'а пароля, создания пользователя. 
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+        'default':
+          description: Что-либо нестандартное.
+          content:
+            apllication/json:
+              schema:
+                $ref: "#/components/schemas/Errors"
+components:
+  schemas:
+    Film:
+      type: object
+      required: 
+        - ID
+        - Title
+      properties:
+        ID:
+          type: integer
+          example: 1
+        Title:
+          type: string
+          example: "Godfather"
+        Description:
+          type: string
+          example: "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son."
+        ReleaseDate:
+          type: string
+          example: "16-03-2023"
+          format: 2022-07-01
+        Rating:
+          type: number
+          example: 9.9
+        Actors: 
+          type: array
+          items: 
+            $ref: "#/components/schemas/Actor"
+          example: ["John Doe", "Jane Doe"]
+    Films:
+      type: array
+      items:
+        $ref: "#/components/schemas/Film"
+    Actor:
+      type: object
+      required:
+        - ID
+        - Name
+      properties:
+        ID:
+          type: integer
+          example: 1
+        Name:
+          type: string
+          example: "John Doe"
+        Gender:
+          type: string
+          example: "Male"
+        Date_of_birth:
+          type: string
+          example: "16-03-2023"
+          format: 2022-07-01
+    Actors:
+      type: array
+      items:
+        $ref: "#/components/schemas/Actor"
+    Error:
+      type: string
+      example:
+        "Bad token or token expired"
+    Errors:
+      type: array
+      items:
+        $ref: "#/components/schemas/Error"
+    LoginUser:
+      type: object
+      required:
+        - Email
+        - Password
+      properties:
+        Email:
+          type: string
+          example: "example@exmaple.org"
+        Password:
+          type: string
+          example: "very strong password"
+    RegisterUser:
+      type: object
+      required:
+        - Username
+        - Email
+        - Password
+      properties:
+        Username:
+          type: string
+          example: "John Doe"
+        Email:
+          type: string
+          example: "example@exmaple.org"
+        Password:
+          type: string
+          example: "very strong password"
+    Token:
+      type: string
+      example: "12093fdsauokjbfgwlk1-fkdljsab108bn0f891i3b013h9f30"
