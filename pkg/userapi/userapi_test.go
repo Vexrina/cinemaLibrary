@@ -3,96 +3,220 @@ package userapi_test
 import (
 	"bytes"
 	"encoding/json"
+
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/vexrina/cinemaLibrary/pkg/orm"
 	"github.com/vexrina/cinemaLibrary/pkg/userapi"
-	"github.com/vexrina/cinemaLibrary/pkg/types"
 )
 
 func TestRegisterHandler(t *testing.T) {
-	// create test db
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer db.Close()
 
-	// create handler with test db
+	orm := orm.NewORM(db)
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userapi.RegisterHandler(w, r, db)
+		userapi.RegisterHandler(w, r, orm)
 	})
 
-	// create test request
-	user := types.User{Username: "testuser", Email: "test@example.com", Password: "testpassword"}
-	body, _ := json.Marshal(user)
-	req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatal(err)
+
+	tests := []struct {
+		name         string
+		requestBody  interface{}
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			name:         "Successful registration",
+			requestBody:  map[string]string{"username": "testuser", "email": "test@example.com", "password": "testpassword"},
+			expectedCode: http.StatusCreated,
+			expectedBody: "",
+		},
+		{
+			name:         "Username or email already exists",
+			requestBody:  map[string]string{"username": "existinguser", "email": "existing@example.com", "password": "testpassword"},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "Username or email already exists\n",
+		},
+		{
+			name:         "Bad request due to malformed JSON",
+			requestBody:  map[string]string{},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "missing required fields\n",
+		},
 	}
 
-	// Set header Content-Type for JSON
-	req.Header.Set("Content-Type", "application/json")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.requestBody)
+			req, err := http.NewRequest("POST", "/register", bytes.NewReader(body))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// Create expected request to db
-	mock.ExpectQuery("SELECT COUNT(.+)").WithArgs(user.Username, user.Email).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-	mock.ExpectExec("INSERT INTO users").WithArgs(user.Username, user.Email, sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(1, 1))
+			if tt.name != "Bad request due to malformed JSON" {
+				if tt.name == "Username or email already exists" {
+					mock.ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+				} else {
+					mock.ExpectQuery("SELECT COUNT").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+					mock.ExpectExec("INSERT INTO users").WithArgs("testuser", "test@example.com", sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(1, 1))
+				}
+			}
 
-	// Send test request
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
 
-	// check statuscode
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
+			assert.Equal(t, tt.expectedCode, rr.Code)
+			assert.Equal(t, tt.expectedBody, rr.Body.String())
 
-	// Check that all request completed successfully 
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
+			if tt.name != "Bad request due to malformed JSON" {
+				assert.NoError(t, mock.ExpectationsWereMet())
+			}
+		})
 	}
 }
-
-func TestLoginHandler(t *testing.T) {
-	//create test db
+func TestLoginHandler_SuccessfulLogin(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer db.Close()
 
-	// create handler with test db
+	orm := orm.NewORM(db)
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userapi.LoginHandler(w, r, db)
+		userapi.LoginHandler(w, r, orm)
 	})
 
-	// create test request
-	user := types.User{Email: "test@example.com", Password: "testpassword"}
-	body, _ := json.Marshal(user)
-	req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
+	mock.ExpectQuery("SELECT password, adminflag FROM users WHERE email=?").WithArgs("test@example.com").WillReturnRows(sqlmock.NewRows([]string{"password", "adminflag"}).AddRow("$2a$10$jbRk/x7EcY7yM7jjLo/uYuCfJ48pJXQo2nFpPOJg.4LNmlvX3JPIG", false))
+
+	requestBody := map[string]string{
+		"email":    "test@example.com",
+		"password": "testpassword",
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, err := http.NewRequest("POST", "/login", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Set header Content-Type for JSON
-	req.Header.Set("Content-Type", "application/json")
-
-	// Hash password for compare
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-
-	// Create expected request to db
-	mock.ExpectQuery("SELECT password").WithArgs(user.Email).WillReturnRows(sqlmock.NewRows([]string{"password"}).AddRow(hashedPassword))
-
-	// Send test request
 	rr := httptest.NewRecorder()
+
 	handler.ServeHTTP(rr, req)
 
-	// check statuscode
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var response map[string]string
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
 	}
+	assert.NotNil(t, response["token"])
+}
+
+func TestLoginHandler_InvalidCredentials(t *testing.T) {
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+    }
+    defer db.Close()
+
+    orm := orm.NewORM(db)
+
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        userapi.LoginHandler(w, r, orm)
+    })
+
+    mock.ExpectQuery("SELECT password, adminflag FROM users WHERE email=?").WithArgs("test@example.com").WillReturnError(errors.New("invalid credentials"))
+
+    requestBody := map[string]string{
+        "email":    "test@example.com",
+        "password": "testpassword",
+    }
+    body, _ := json.Marshal(requestBody)
+
+    req, err := http.NewRequest("POST", "/login", bytes.NewReader(body))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    rr := httptest.NewRecorder()
+
+    handler.ServeHTTP(rr, req)
+
+    assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestLoginHandler_UnsuccessfulLogin(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	orm := orm.NewORM(db)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userapi.LoginHandler(w, r, orm)
+	})
+
+	mock.ExpectQuery("SELECT password, adminflag FROM users WHERE email=?").WithArgs("test@example.com").WillReturnRows(sqlmock.NewRows([]string{"password", "adminflag"}).AddRow("$2a$Y7yM7jjLo/uYuCfJ48pJXQo2nFpPOJg.4LNmlvX3JPIG", false))
+
+	requestBody := map[string]string{
+		"email":    "test@example.com",
+		"password": "testpassword",
+	}
+	body, _ := json.Marshal(requestBody)
+
+	req, err := http.NewRequest("POST", "/login", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestRegisterHandler_InternalServerError(t *testing.T) {
+    db, mock, err := sqlmock.New()
+    if err != nil {
+        t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+    }
+    defer db.Close()
+
+    orm := orm.NewORM(db)
+
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        userapi.RegisterHandler(w, r, orm)
+    })
+
+    mock.ExpectQuery("SELECT count\\(\\*\\) FROM users WHERE username=? OR email=?").WithArgs("existinguser", "existing@example.com").WillReturnError(errors.New("database error"))
+
+    requestBody := map[string]string{
+        "username": "existinguser",
+        "email":    "existing@example.com",
+        "password": "testpassword",
+    }
+    body, _ := json.Marshal(requestBody)
+
+    req, err := http.NewRequest("POST", "/register", bytes.NewReader(body))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    rr := httptest.NewRecorder()
+    handler.ServeHTTP(rr, req)
+    assert.Equal(t, http.StatusInternalServerError, rr.Code)
 }

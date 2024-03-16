@@ -19,8 +19,12 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	
+	if user.Email=="" || user.Password=="" || user.Username ==""{
+		http.Error(w, "missing required fields", http.StatusBadRequest)
+		return
+	}
 
-	// Check if username and email pair is unique
 	count, err := orm.CountUsersWithUsernameAndEmail(user.Username, user.Email)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -31,14 +35,12 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		return
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Insert user data to database
 	err = orm.CreateUser(user.Username, user.Email, string(hashedPassword))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -56,14 +58,12 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		return
 	}
 
-	// Get hashed password from db
 	storedPassword, adminflag, err := orm.GetUserPasswordByEmail(user.Email)
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
-
-	// Compare passwords
+	
 	err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(user.Password))
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
@@ -73,10 +73,10 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 	tokenString, err := tokens.CreateToken(user.Username, adminflag)
 	if err != nil {
 		http.Error(w, "Error with creating token", http.StatusUnauthorized)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+
 	response := map[string]string{"token":tokenString}
 	
 	err = json.NewEncoder(w).Encode(response)
@@ -84,4 +84,5 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, orm *orm.ORM) {
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 }
